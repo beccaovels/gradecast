@@ -12,6 +12,7 @@ from gradecast_ui.compute import course_key, get_models, probabilities_for
 from gradecast_ui.course_table import reset_table
 from gradecast_ui.hero import render_empty_state, render_hero
 from gradecast_ui.sidebar import render_sidebar
+from gradecast_ui.story import render_story
 from gradecast_ui.styles import inject_css
 
 st.set_page_config(page_title="GradeCast", page_icon="🎯", layout="wide")
@@ -38,3 +39,6 @@ probabilities = probabilities_for(key)
 render_hero(course, probabilities)
 if not course.taken():
     render_empty_state(preset_name)
+
+# 2. How GradeCast got there
+render_story(course)
