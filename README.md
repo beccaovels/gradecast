@@ -8,11 +8,21 @@ Your chance of an A, not just the score you need: a Streamlit app that turns the
 
 - Shows your current total, the weight still to come, the average you need for an A, and your best possible total.
 - Gives the **probability of each letter grade** (A to E) for a course, using the Universitas Indonesia grading table.
-- Predicts the final exam as a **range**, not a single number.
-- Compares scenarios such as "Bomb the final", "Skip a quiz" and "Locked in", plus a custom scenario where you pin any remaining item to a score.
+- **Shows the model thinking** in a four-step interactive walkthrough: your semester so far, how it learns your scoring (Bayesian updating), how it forecasts the final exam (gradient boosting), and how it plays out 10,000 semesters (Monte Carlo).
+- Has a **playground**: compare scenarios such as "Bomb the final" or "Skip a quiz", lock any remaining item to a score with a slider, and watch the chance of an A change live.
 - Tells you the **safe zone**: the lowest Final Exam score that keeps you at least 50% likely to get an A.
 
 No database, no login. Everything lives in your Streamlit session.
+
+## How it looks
+
+The page tells one story from top to bottom: the answer, how GradeCast got there, and your playground.
+
+| The answer | How it got there | Your playground |
+|---|---|---|
+| ![Hero with an animated ring](docs/screenshot.png) | ![Ghost semesters and Monte Carlo](docs/story-simulation.png) | ![Scenario cards, sliders and safe zone](docs/playground.png) |
+
+Animations are plain CSS (a filling ring and count-up numbers) plus Plotly animation frames (the histogram that settles as runs accumulate), and they switch off for visitors who prefer reduced motion. The screenshots use a sample student with scores in the mid-80s.
 
 ## How it works
 
@@ -21,6 +31,12 @@ No database, no login. Everything lives in your Streamlit session.
 3. **Bayesian updating for quizzes and other items.** We start from a typical student (mean 75, spread 12) and let each of your own scores pull that belief toward you. With few scores the starting belief matters a lot; with many, your own scores dominate. A noise floor stops a couple of similar scores from looking like certainty.
 4. **Monte Carlo simulation.** For every unfinished item we draw a random score from its predictor, add everything up, and repeat 10,000 times. The share of runs ending in each letter is its probability. 10,000 runs is enough that the percentages barely move between runs, yet it still finishes in well under a second.
 5. **Scenarios.** A scenario fixes ("pins") some scores or shifts every random draw up or down, then re-runs the simulation so you can compare.
+
+## Project layout
+
+- `gradecast/`: all the maths, with no Streamlit code (grading table, course maths, Bayesian update, exam model, simulator, and `explain.py` with read-only helpers for the walkthrough).
+- `gradecast_ui/`: the page, one job per file (`styles.py`, `motion.py`, `hero.py`, `story.py`, `playground.py`, `charts.py`, `compute.py`, `sidebar.py`, `footer.py`).
+- `app.py`: wires the page together.
 
 ## Model results
 
