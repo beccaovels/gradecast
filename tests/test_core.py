@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from gradecast import bayes
 from gradecast.course import PRESETS, Course, Item
 from gradecast.grading import letters_for, to_letter
 
@@ -39,3 +40,13 @@ def test_deterministic_course_math() -> None:
 
 def test_preset_weights_sum_to_100() -> None:
     assert PRESETS["Statistics & Probability"].total_weight() == 100
+
+
+def test_bayes_more_scores_means_less_uncertainty() -> None:
+    few = bayes.update([80.0, 82.0])
+    many = bayes.update([80.0, 82.0] * 5)
+    assert many.sd < few.sd
+
+
+def test_bayes_no_scores_returns_prior_mean() -> None:
+    assert bayes.update([]).mean == 75.0
