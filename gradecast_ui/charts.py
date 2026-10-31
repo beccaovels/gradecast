@@ -110,3 +110,48 @@ def belief_figure(curves: dict, y_max: float, n_used: int) -> go.Figure:
     fig.update_xaxes(range=[0, 100], title="Score on your next quiz-style item")
     fig.update_yaxes(visible=False, range=[0, y_max])
     return style_figure(fig, 300)
+
+
+def forecast_figure(forecasts: list[dict]) -> go.Figure:
+    """Range bars for each remaining exam: low, likely and high, plus the score needed for an A.
+
+    Args:
+        forecasts: Output of ``explain.exam_forecasts``.
+
+    Returns:
+        A horizontal range chart (0-100) with one row per exam.
+    """
+    fig = go.Figure()
+    for row, forecast in enumerate(forecasts):
+        name, low, median, high = forecast["name"], forecast["low"], forecast["median"], forecast["high"]
+        needed = forecast["needed_for_a"]
+        # A soft mint zone shows every score on this exam that would be enough for an A.
+        if needed <= 100:
+            fig.add_shape(
+                type="rect", x0=max(needed, 0), x1=100, y0=row - 0.42, y1=row + 0.42,
+                fillcolor="rgba(126,224,195,0.30)", line_width=0, layer="below",
+            )
+        # The model's likely range, with the low and high ends labelled.
+        fig.add_trace(go.Scatter(
+            x=[low, high], y=[name, name], mode="lines+text",
+            line=dict(color=LIGHT_SKY, width=16),
+            text=[f"{low:.0f}", f"{high:.0f}"], textposition=["middle left", "middle right"],
+            hoverinfo="skip",
+        ))
+        # The middle (median) forecast.
+        fig.add_trace(go.Scatter(
+            x=[median], y=[name], mode="markers+text",
+            marker=dict(symbol="diamond", size=16, color=INK),
+            text=[f"likely {median:.0f}"], textposition="bottom center", hoverinfo="skip",
+        ))
+        # The score you need, only drawn if it lies on the 0-100 scale.
+        if 0 <= needed <= 100:
+            fig.add_trace(go.Scatter(
+                x=[needed], y=[name], mode="markers+text",
+                marker=dict(symbol="line-ns-open", size=34, line=dict(color=WARM, width=4)),
+                text=[f"needed for A: {needed:.0f}"], textposition="top center",
+                textfont=dict(color=INK), hoverinfo="skip",
+            ))
+    fig.update_xaxes(range=[0, 100], title="Final exam score")
+    fig.update_yaxes(type="category", autorange="reversed")
+    return style_figure(fig, 150 + 90 * len(forecasts))

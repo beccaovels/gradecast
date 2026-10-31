@@ -11,8 +11,8 @@ import streamlit as st
 
 from gradecast.course import Course
 from gradecast.explain import belief_curves
-from gradecast_ui.charts import PLOT_CONFIG, belief_figure
-from gradecast_ui.compute import course_key
+from gradecast_ui.charts import PLOT_CONFIG, belief_figure, forecast_figure
+from gradecast_ui.compute import course_key, forecasts_for, get_metrics
 from gradecast_ui.styles import MUTED, SKY, SOFT_BLUE, esc, page_html
 
 A_LINE = 85
@@ -108,6 +108,78 @@ def _step_learning(course: Course) -> None:
     )
 
 
+def _verdict(forecast: dict) -> str:
+    """One sentence comparing the score needed for an A with the model's range."""
+    name, needed = forecast["name"], forecast["needed_for_a"]
+    low, high = forecast["low"], forecast["high"]
+    if needed <= 0:
+        return f"If the rest goes as expected, you need almost nothing on the {name} to reach an A."
+    if needed > 100:
+        return f"If the rest goes as expected, an A would need more than a perfect {name}."
+    if needed > high:
+        return (f"The score you need ({needed:.0f}) is above the model's likely range "
+                f"({low:.0f}-{high:.0f}), so an A would be a stretch.")
+    if needed < low:
+        return (f"The score you need ({needed:.0f}) is below the model's likely range "
+                f"({low:.0f}-{high:.0f}), so an A looks likely if the rest goes as expected.")
+    return (f"The score you need ({needed:.0f}) falls inside the model's likely range "
+            f"({low:.0f}-{high:.0f}), so an A is a real possibility.")
+
+
+def _step_forecast(course: Course) -> None:
+    """Step 3: the exam forecast as a range, what the model looked at, and its report card."""
+    _intro("The model forecasts your final exam", "gradient boosting")
+    forecasts = forecasts_for(course_key(course))
+    if not forecasts:
+        page_html('<div class="callout blue">There is no exam left to forecast.</div>')
+        return
+    st.plotly_chart(forecast_figure(forecasts), width="stretch", config=PLOT_CONFIG)
+    st.caption(
+        "Each bar is the model's likely range (low to high) with a diamond at its middle forecast. "
+        "The orange tick is the score you would need for an A, and the green zone is every score that is enough."
+    )
+    for forecast in forecasts:
+        st.markdown(f"**{forecast['name']}.** {_verdict(forecast)}")
+
+    # What the model looked at: the same two numbers for every exam.
+    first = forecasts[0]
+    coursework = f"{first['coursework']:.0f}" + ("" if first["coursework_known"] else " (assumed, no scores yet)")
+    midterm = f"{first['midterm']:g}" if first["midterm"] is not None else "not taken yet"
+    page_html(
+        f"""
+        <div class="tech">What the model looked at</div>
+        <div class="inputs">
+        <span class="badge">Coursework average: <b>{esc(coursework)}</b></span>
+        <span class="badge">Mid term exam: <b>{esc(midterm)}</b></span>
+        </div>
+        """
+    )
+
+    # The model's honest report card, from the held-out test students.
+    metrics = get_metrics()
+    if metrics:
+        report = metrics["with_midterm" if first["midterm"] is not None else "without_midterm"]
+        gain = report["baseline_mae"] - report["mae"]
+        page_html(
+            f"""
+            <div class="badges">
+            <span class="badge">Typical error <b>±{report['mae']:.1f} points</b></span>
+            <span class="badge">Baseline (just averaging your scores) <b>±{report['baseline_mae']:.1f} points</b></span>
+            </div>
+            """
+        )
+        if gain > 0.2:
+            st.caption(f"On students it had never seen, the model's guess was about {gain:.1f} points closer than simply averaging their scores.")
+        else:
+            st.caption("Here, simply averaging your scores is about as good as the model, so treat the range as the real answer, not the middle.")
+    _explain(
+        "The model compares you with hundreds of real students who had similar early scores, "
+        "and reports a range for the final: a low guess, a likely guess and a high guess.",
+        "One exam score is never certain, so a range is more honest than a single number. "
+        "It trained on 600+ real students and predicts a range, not one number.",
+    )
+
+
 @st.fragment
 def render_story(course: Course) -> None:
     """Draw the four-step walkthrough.
@@ -131,5 +203,7 @@ def render_story(course: Course) -> None:
             _step_semester(course)
         elif index == 1:
             _step_learning(course)
+        elif index == 2:
+            _step_forecast(course)
         else:
             st.info("Coming up next.")
