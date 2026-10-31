@@ -9,6 +9,7 @@ Streamlit, so they are easy to read and reuse.
 import numpy as np
 import plotly.graph_objects as go
 
+from gradecast.explain import format_probability
 from gradecast.grading import LETTERS
 from gradecast_ui.styles import GREY_TEXT, INK, LIGHT_SKY, MINT, MUTED, SKY, WARM
 
@@ -50,8 +51,6 @@ def grade_bar_chart(probabilities: dict[str, float], height: int = 300) -> go.Fi
     Returns:
         A figure with the A bar in blue, the others muted, percentages as labels.
     """
-    from gradecast.explain import format_probability
-
     values = [probabilities[letter] for letter in LETTERS]
     fig = go.Figure(
         go.Bar(
@@ -79,7 +78,6 @@ def belief_figure(curves: dict, y_max: float, n_used: int) -> go.Figure:
         A Plotly figure.
     """
     x = curves["x"]
-    prior, posterior = curves["prior_belief"], curves["posterior_belief"]
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=x, y=curves["prior"], mode="lines", line=dict(color=MUTED, width=3),
@@ -90,24 +88,16 @@ def belief_figure(curves: dict, y_max: float, n_used: int) -> go.Figure:
         fill="tozeroy", fillcolor="rgba(47,128,237,0.25)", hoverinfo="skip",
     ))
 
-    def density_at(belief, at: float) -> float:
-        """Height of a belief's curve at one score (for placing labels)."""
-        z = (at - belief.mean) / belief.sd
-        return float(np.exp(-0.5 * z**2) / (belief.sd * np.sqrt(2 * np.pi)))
-
-    # Direct labels sit on opposite shoulders of the curves so they rarely collide.
-    right_x = min(prior.mean + 1.3 * prior.sd, 99)
-    left_x = max(posterior.mean - 1.3 * posterior.sd, 1)
-    fig.add_annotation(
-        x=right_x, y=density_at(prior, right_x), text="a typical student<br>(our starting guess)",
-        showarrow=False, xanchor="left", yanchor="bottom", font=dict(color=GREY_TEXT, size=12),
-    )
+    # Two coloured labels in the top-left corner name the curves; they never run off the chart.
     label = "you, before any scores" if n_used == 0 else f"you, after {n_used} score{'s' if n_used != 1 else ''}"
-    fig.add_annotation(
-        x=left_x, y=density_at(posterior, left_x), text=label,
-        showarrow=False, xanchor="right", yanchor="bottom", font=dict(color=SKY, size=12),
-    )
-    fig.update_xaxes(range=[0, 100], title="Score on your next quiz-style item")
+    for row, (text_label, color) in enumerate(
+        [("a typical student (our starting guess)", GREY_TEXT), (label, SKY)]
+    ):
+        fig.add_annotation(
+            xref="paper", yref="paper", x=0.01, y=0.99 - 0.1 * row, text=f"<b>▬</b> {text_label}",
+            showarrow=False, xanchor="left", yanchor="top", font=dict(color=color, size=13),
+        )
+    fig.update_xaxes(range=[0, 104], title="Score on your next quiz-style item", tickvals=[0, 20, 40, 60, 80, 100])
     fig.update_yaxes(visible=False, range=[0, y_max])
     return style_figure(fig, 300)
 
@@ -152,7 +142,7 @@ def forecast_figure(forecasts: list[dict]) -> go.Figure:
                 text=[f"needed for A: {needed:.0f}"], textposition="top center",
                 textfont=dict(color=INK), hoverinfo="skip",
             ))
-    fig.update_xaxes(range=[0, 100], title="Final exam score")
+    fig.update_xaxes(range=[0, 104], title="Final exam score", tickvals=[0, 20, 40, 60, 80, 100])
     fig.update_yaxes(type="category", autorange="reversed")
     return style_figure(fig, 150 + 90 * len(forecasts))
 
@@ -196,7 +186,7 @@ def ghost_figure(paths: dict, highlight: dict | None = None) -> go.Figure:
     )
     fig.update_xaxes(
         tickmode="array", tickvals=steps, ticktext=["Start"] + [_short(n) for n in paths["names"]],
-        tickangle=-35, range=[0, len(steps) - 1 + 0.9],
+        tickangle=-35, range=[0, len(steps) - 1 + 1.9],
     )
     fig.update_yaxes(range=[0, 100], title="Running total", showgrid=True, gridcolor="rgba(184,196,214,0.3)")
     return style_figure(fig, 380)
@@ -212,8 +202,6 @@ def convergence_figure(snapshots: list[np.ndarray], all_totals: np.ndarray) -> g
     Returns:
         A figure with one animation frame per snapshot, a play button and a slider.
     """
-    from gradecast.explain import format_probability
-
     low, high = float(all_totals.min()), float(all_totals.max())
     if high - low < 1e-9:
         low, high = low - 1, high + 1

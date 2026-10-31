@@ -40,12 +40,11 @@ def render_sidebar() -> tuple[Course, str]:
         # Switching preset replaces the table with that preset's blank layout.
         if preset_name != st.session_state.preset:
             reset_table(preset_name, with_demo_scores=False)
-        load_col, clear_col = st.columns(2)
-        load_col.button(
+        st.button(
             "Load example scores", width="stretch", type="primary",
             on_click=reset_table, args=(preset_name, True),
         )
-        clear_col.button(
+        st.button(
             "Clear scores", width="stretch",
             on_click=reset_table, args=(preset_name, False),
         )

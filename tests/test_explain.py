@@ -115,7 +115,8 @@ def test_plain_summary_three_cases(exam_models: model.Models) -> None:
     probabilities = grade_probabilities(simulate(normal, exam_models))
     assert a_status(normal) == "open"
     assert "average 94" in plain_summary(normal, probabilities)
-    assert "B+" in plain_summary(normal, probabilities)
+    assert "heading for a B+" in plain_summary(normal, probabilities)
+    assert "heading for an A." in plain_summary(normal, {"A": 0.9, "B+": 0.1})
 
     secured = _course({item.name: 100.0 for item in normal.items if item.name != "Quiz 6"})
     assert a_status(secured) == "secured"

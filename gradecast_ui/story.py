@@ -214,10 +214,12 @@ def _step_simulation(course: Course) -> None:
     roll = st.session_state.get("roll", 0)
     rolled = paths_for(key, 1, 1000 + roll)
     st.plotly_chart(ghost_figure(paths_for(key, 25, 42), rolled), width="stretch", config=PLOT_CONFIG)
+    finals = paths_for(key, 25, 42)["finals"]
     st.caption(
-        "Each thin line is one imagined semester: it climbs as items are graded and fans out after your last "
-        "scored item. Mint lines end with an A (85 or more), grey lines do not. The dark line is the semester "
-        "highlighted below."
+        "Each thin line is one imagined semester: it climbs as items are graded and fans out where you still have "
+        "unscored items. Mint lines end with an A (85 or more), grey lines do not. The dark line is the semester "
+        f"highlighted below. These {len(finals)} finals landed between {finals.min():.0f} and {finals.max():.0f}; "
+        "when the lines look bunched together, it is because the points already banked leave little room to move."
     )
     st.button("Roll another semester", type="primary", key="roll_btn", on_click=_roll_again)
     drawn = [

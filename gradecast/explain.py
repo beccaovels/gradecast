@@ -88,9 +88,11 @@ def plain_summary(
         )
     needed = course.required_average(target)
     likely = most_likely_letter(probabilities)
+    # "an A" and "an E", but "a B+" or "a C".
+    article = "an" if likely[0] in "AE" else "a"
     return (
         f"To get an A you need to average {needed:.0f} on what's left. "
-        f"Right now you're most likely heading for a {likely}."
+        f"Right now you're most likely heading for {article} {likely}."
     )
 
 

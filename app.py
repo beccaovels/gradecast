@@ -10,6 +10,7 @@ import streamlit as st
 
 from gradecast_ui.compute import course_key, get_models, probabilities_for
 from gradecast_ui.course_table import reset_table
+from gradecast_ui.footer import render_footer
 from gradecast_ui.hero import render_empty_state, render_hero
 from gradecast_ui.playground import render_playground
 from gradecast_ui.sidebar import render_sidebar
@@ -46,3 +47,6 @@ render_story(course)
 
 # 3. Your playground
 render_playground(course)
+
+# Footer
+render_footer()

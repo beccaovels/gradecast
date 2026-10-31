@@ -29,13 +29,13 @@ def _select_scenario(name: str) -> None:
 
 
 def _reset() -> None:
-    """Button callback: back to the Stable scenario with every lock off."""
+    """Button callback: back to the Stable scenario with every lock off.
+
+    The lock toggles and sliders include a version number in their keys, so
+    bumping it makes Streamlit build brand-new widgets with their defaults.
+    """
     st.session_state.active_scenario = "Stable"
-    for state_key in list(st.session_state.keys()):
-        if state_key.startswith("lock_"):
-            st.session_state[state_key] = False
-        elif state_key.startswith("val_"):
-            st.session_state[state_key] = DEFAULT_PIN
+    st.session_state.play_version = st.session_state.get("play_version", 0) + 1
 
 
 def _delta_text(points: int, is_baseline: bool) -> str:
@@ -74,13 +74,12 @@ def _scenario_cards(course: Course, key: tuple, active: str) -> None:
 def _custom_sliders(course: Course) -> dict[str, float]:
     """One lock toggle and slider per remaining item; locked items become pins."""
     pins: dict[str, float] = {}
+    version = st.session_state.get("play_version", 0)
     for item in course.remaining():
         toggle_col, slider_col = st.columns([1, 3])
-        locked = toggle_col.toggle(f"Lock {item.name}", key=f"lock_{item.name}")
-        # The starting value lives in session state only (giving it twice makes Streamlit warn).
-        st.session_state.setdefault(f"val_{item.name}", DEFAULT_PIN)
+        locked = toggle_col.toggle(f"Lock {item.name}", key=f"lock_{item.name}_{version}")
         value = slider_col.slider(
-            item.name, 0, 100, key=f"val_{item.name}",
+            item.name, 0, 100, DEFAULT_PIN, key=f"val_{item.name}_{version}",
             disabled=not locked, label_visibility="collapsed",
         )
         if locked:

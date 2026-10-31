@@ -162,7 +162,7 @@ BASE_CSS = """
 .inputs { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px 0; }
 
 /* Playground: scenario cards */
-.scn { border-radius: 18px; padding: 16px 18px; border: 2px solid transparent;
+.scn { border-radius: 18px; padding: 16px 18px; border: 2px solid transparent; margin-bottom: 8px;
     animation: rise 400ms ease both; animation-delay: calc(var(--i, 0) * 60ms); }
 .scn.blue { background: var(--soft-blue); } .scn.green { background: var(--soft-green); }
 .scn.peach { background: var(--soft-peach); }
@@ -176,6 +176,7 @@ BASE_CSS = """
     display: flex; flex-wrap: wrap; gap: 22px; align-items: center; }
 .mini .ring-wrap { width: min(150px, 50vw); }
 .mini .ring-num { font-size: 1.9rem; }
+.mini .ring-track { stroke: #fff; }
 
 /* Playground: safe-zone gauge */
 .gauge { position: relative; height: 22px; border-radius: 999px; background: var(--muted); margin: 34px 0 6px 0; }
