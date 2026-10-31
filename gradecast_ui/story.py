@@ -7,15 +7,32 @@ forecasting the final exam (gradient boosting), and playing out 10,000
 semesters (Monte Carlo).
 """
 
+import pandas as pd
 import streamlit as st
 
 from gradecast.course import Course
-from gradecast.explain import belief_curves
-from gradecast_ui.charts import PLOT_CONFIG, belief_figure, forecast_figure
-from gradecast_ui.compute import course_key, forecasts_for, get_metrics
+from gradecast.explain import belief_curves, convergence_snapshots
+from gradecast_ui.charts import (
+    PLOT_CONFIG,
+    belief_figure,
+    convergence_figure,
+    forecast_figure,
+    ghost_figure,
+    grade_bar_chart,
+)
+from gradecast_ui.compute import (
+    course_key,
+    forecasts_for,
+    get_metrics,
+    paths_for,
+    probabilities_for,
+    totals_for,
+)
 from gradecast_ui.styles import MUTED, SKY, SOFT_BLUE, esc, page_html
 
 A_LINE = 85
+# Run counts for the "watch it settle" animation (7 frames keeps the chart light).
+CHECKPOINTS = (10, 30, 100, 300, 1000, 3000, 10_000)
 STEPS = ["1 · Your semester", "2 · Learning you", "3 · The final exam", "4 · 10,000 semesters"]
 
 
@@ -180,6 +197,59 @@ def _step_forecast(course: Course) -> None:
     )
 
 
+def _roll_again() -> None:
+    """Button callback: ask for a fresh simulated semester."""
+    st.session_state.roll = st.session_state.get("roll", 0) + 1
+
+
+def _step_simulation(course: Course) -> None:
+    """Step 4: ghost semesters, one rollable semester, the settling histogram, and the grade bars."""
+    _intro("Playing out 10,000 semesters", "Monte Carlo simulation")
+    if not course.remaining():
+        page_html('<div class="callout blue">Every item already has a score, so there is nothing left to simulate.</div>')
+        return
+    key = course_key(course)
+
+    # Visual A: ~25 faint "ghost" semesters plus one highlighted, re-rollable semester.
+    roll = st.session_state.get("roll", 0)
+    rolled = paths_for(key, 1, 1000 + roll)
+    st.plotly_chart(ghost_figure(paths_for(key, 25, 42), rolled), width="stretch", config=PLOT_CONFIG)
+    st.caption(
+        "Each thin line is one imagined semester: it climbs as items are graded and fans out after your last "
+        "scored item. Mint lines end with an A (85 or more), grey lines do not. The dark line is the semester "
+        "highlighted below."
+    )
+    st.button("Roll another semester", type="primary", key="roll_btn", on_click=_roll_again)
+    drawn = [
+        (name, score) for name, fixed, score in zip(rolled["names"], rolled["fixed"], rolled["scores"][0]) if not fixed
+    ]
+    st.dataframe(
+        pd.DataFrame({"Item": [n for n, _ in drawn], "This semester it scored": [round(s) for _, s in drawn]}),
+        hide_index=True, width="stretch",
+    )
+    summary = " · ".join(f"{name}: {score:.0f}" for name, score in drawn)
+    page_html(
+        f'<div class="callout green">{esc(summary)} → total <b>{rolled["finals"][0]:.1f}</b> → '
+        f'<b>{esc(rolled["grades"][0])}</b></div>'
+    )
+
+    # Visual B: the histogram of final totals settling as runs accumulate.
+    totals = totals_for(key)
+    st.plotly_chart(
+        convergence_figure(convergence_snapshots(totals, CHECKPOINTS), totals), width="stretch", config=PLOT_CONFIG
+    )
+    st.caption("Why 10,000? Run it only 10 times and the answer jumps around. Run it 10,000 times and it settles.")
+
+    st.markdown("**How the 10,000 semesters ended**")
+    st.plotly_chart(grade_bar_chart(probabilities_for(key)), width="stretch", config=PLOT_CONFIG)
+    st.caption("Share of the simulated semesters that ended in each letter grade; the A bar is blue.")
+    _explain(
+        "For every item still to come, the computer draws a plausible score (from the Bayesian curve for quizzes, "
+        "from the exam range for exams), adds everything up, and repeats that 10,000 times.",
+        "Nobody can know the future, but counting how often each grade shows up turns uncertainty into a percentage you can use.",
+    )
+
+
 @st.fragment
 def render_story(course: Course) -> None:
     """Draw the four-step walkthrough.
@@ -206,4 +276,4 @@ def render_story(course: Course) -> None:
         elif index == 2:
             _step_forecast(course)
         else:
-            st.info("Coming up next.")
+            _step_simulation(course)
