@@ -64,6 +64,93 @@ def _draw_parameters(
     return belief.mean, belief.sd
 
 
+def _simulate_parts(
+    course: Course,
+    exam_models: model.Models,
+    n: int,
+    pins: dict[str, float] | None,
+    shift: float,
+    seed: int,
+) -> tuple[float, list[Item], np.ndarray]:
+    """Do the shared work behind ``simulate`` and ``simulate_items``.
+
+    Args:
+        course: The course with whatever scores are known.
+        exam_models: Trained final-exam models.
+        n: Number of simulated semesters.
+        pins: Item name -> score to fix in every run (overrides real scores).
+        shift: Points added to every random draw.
+        seed: Random seed.
+
+    Returns:
+        The points from fixed items, the items that are random, and an
+        ``n x k`` matrix of their drawn scores (clipped to 0-100).
+    """
+    pins = pins or {}
+    rng = np.random.default_rng(seed)
+
+    # Points from fixed items (taken or pinned) are the same in every run.
+    fixed_points = 0.0
+    # Items still random, with their score distributions.
+    random_items: list[Item] = []
+    random_means: list[float] = []
+    random_sds: list[float] = []
+    for item in course.items:
+        if item.name in pins:
+            fixed_points += pins[item.name] * item.weight / 100
+        elif item.score is not None:
+            fixed_points += item.score * item.weight / 100
+        else:
+            mean, sd = _draw_parameters(course, exam_models, item)
+            random_items.append(item)
+            random_means.append(mean)
+            random_sds.append(sd)
+
+    # Nothing random left: an empty matrix (n rows, 0 columns).
+    if not random_items:
+        return fixed_points, random_items, np.empty((n, 0))
+
+    # One n x k matrix of draws (rows = runs, columns = items) in one shot.
+    # The shift moves every random mean, not the fixed scores.
+    draws = rng.normal(
+        loc=np.array(random_means) + shift,
+        scale=np.array(random_sds),
+        size=(n, len(random_items)),
+    )
+    # Clip to 0-100 because a real test score can't be negative or above 100,
+    # but random draws from a normal distribution sometimes go past those limits.
+    return fixed_points, random_items, np.clip(draws, 0, 100)
+
+
+def simulate_items(
+    course: Course,
+    exam_models: model.Models,
+    n: int = 10_000,
+    pins: dict[str, float] | None = None,
+    shift: float = 0.0,
+    seed: int = 42,
+) -> tuple[list[str], np.ndarray]:
+    """Return the simulated score of every random item, run by run.
+
+    Same inputs as ``simulate``; this just exposes the draws before they are
+    added up, so the app can show what one simulated semester looked like.
+
+    Args:
+        course: The course with whatever scores are known.
+        exam_models: Trained final-exam models.
+        n: Number of simulated semesters.
+        pins: Item name -> score to fix in every run.
+        shift: Points added to every random draw.
+        seed: Random seed.
+
+    Returns:
+        The names of the random (remaining, unpinned) items in course order,
+        and an ``n x k`` matrix of their scores.
+    """
+    _, random_items, draws = _simulate_parts(course, exam_models, n, pins, shift, seed)
+    return [item.name for item in random_items], draws
+
+
 def simulate(
     course: Course,
     exam_models: model.Models,
@@ -89,42 +176,15 @@ def simulate(
         >>> simulate(course, models, n=5).shape  # doctest: +SKIP
         (5,)
     """
-    pins = pins or {}
-    rng = np.random.default_rng(seed)
-
-    # Points from fixed items (taken or pinned) are the same in every run.
-    fixed_points = 0.0
-    # Items still random, with their weights and score distributions.
-    random_weights: list[float] = []
-    random_means: list[float] = []
-    random_sds: list[float] = []
-    for item in course.items:
-        if item.name in pins:
-            fixed_points += pins[item.name] * item.weight / 100
-        elif item.score is not None:
-            fixed_points += item.score * item.weight / 100
-        else:
-            mean, sd = _draw_parameters(course, exam_models, item)
-            random_weights.append(item.weight / 100)
-            random_means.append(mean)
-            random_sds.append(sd)
-
-    # Nothing random left: every run gives the same total.
-    if not random_weights:
-        return np.full(n, fixed_points)
-
-    # One n x k matrix of draws (rows = runs, columns = items) in one shot.
-    # The shift moves every random mean, not the fixed scores.
-    draws = rng.normal(
-        loc=np.array(random_means) + shift,
-        scale=np.array(random_sds),
-        size=(n, len(random_weights)),
+    fixed_points, random_items, draws = _simulate_parts(
+        course, exam_models, n, pins, shift, seed
     )
-    # Clip to 0-100 because a real test score can't be negative or above 100,
-    # but random draws from a normal distribution sometimes go past those limits.
-    draws = np.clip(draws, 0, 100)
+    # Nothing random left: every run gives the same total.
+    if not random_items:
+        return np.full(n, fixed_points)
     # Each run's total = fixed points + sum of (draw * weight) across items.
-    return fixed_points + draws @ np.array(random_weights)
+    weights = np.array([item.weight / 100 for item in random_items])
+    return fixed_points + draws @ weights
 
 
 def grade_probabilities(totals: np.ndarray) -> dict[str, float]:
