@@ -171,6 +171,12 @@ BASE_CSS = """
 .scn .p { font-size: 1.9rem; font-weight: 800; line-height: 1.2; }
 .scn .d { font-size: 0.85rem; font-weight: 700; }
 
+/* Playground: live mini hero */
+.mini { background: var(--soft-blue); border-radius: 20px; padding: 18px 22px; margin: 14px 0;
+    display: flex; flex-wrap: wrap; gap: 22px; align-items: center; }
+.mini .ring-wrap { width: min(150px, 50vw); }
+.mini .ring-num { font-size: 1.9rem; }
+
 /* Playground: safe-zone gauge */
 .gauge { position: relative; height: 22px; border-radius: 999px; background: var(--muted); margin: 34px 0 6px 0; }
 .gauge .safe { position: absolute; top: 0; bottom: 0; right: 0; background: var(--mint); border-radius: 0 999px 999px 0; }
