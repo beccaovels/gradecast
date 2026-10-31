@@ -1,0 +1,8 @@
+﻿streamlit>=1.40
+numpy>=2.1
+pandas>=2.2.3
+scikit-learn>=1.5.2
+plotly>=5.24
+joblib>=1.4
+ucimlrepo>=0.0.7
+pytest>=8.3
