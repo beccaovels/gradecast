@@ -1,0 +1,15 @@
+{
+  "n_test": 129,
+  "with_midterm": {
+    "mae": 3.1066896808288353,
+    "baseline_mae": 3.6627906976744184,
+    "coverage": 0.7984496124031008
+  },
+  "without_midterm": {
+    "mae": 5.027457308048675,
+    "baseline_mae": 4.844961240310077,
+    "coverage": 0.7751937984496124
+  },
+  "n_train": 512,
+  "n_rows_total": 649
+}
